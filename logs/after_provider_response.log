@@ -89,3 +89,29 @@
   }
 }
 ------------------------------
+[2026-06-03T13:18:13.352Z || 2026-06-03T22:18:13]
+{
+  "type": "after_provider_response",
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "",
+    "content-type": "text/event-stream",
+    "keep-alive": "timeout=5, max=100",
+    "server": "llama.cpp",
+    "transfer-encoding": "chunked"
+  }
+}
+------------------------------
+[2026-06-03T13:18:15.041Z || 2026-06-03T22:18:15]
+{
+  "type": "after_provider_response",
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "",
+    "content-type": "text/event-stream",
+    "keep-alive": "timeout=5, max=100",
+    "server": "llama.cpp",
+    "transfer-encoding": "chunked"
+  }
+}
+------------------------------
