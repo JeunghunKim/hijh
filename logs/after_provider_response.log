@@ -1,0 +1,13 @@
+[2026-06-03T13:16:37.098Z || 2026-06-03T22:16:37]
+{
+  "type": "after_provider_response",
+  "status": 200,
+  "headers": {
+    "access-control-allow-origin": "",
+    "content-type": "text/event-stream",
+    "keep-alive": "timeout=5, max=100",
+    "server": "llama.cpp",
+    "transfer-encoding": "chunked"
+  }
+}
+------------------------------
