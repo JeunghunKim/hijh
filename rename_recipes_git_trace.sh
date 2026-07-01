@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# 레시피 md 파일 이름을yyyymmdd_제목.md 규칙으로 renaming합니다.
-# 파일의 수정일(mtime)을 기준으로 날짜를 결정합니다.
+# 레시피 md 파일 이름을 yyyymmdd_제목.md 규칙으로 renaming합니다.
+# 파일의 **git 최초 추가일**을 기준으로 날짜를 결정합니다.
 #
 # 사용법:
-#   ./rename_recipes.sh [--dry-run]
+#   ./rename_recipes_git_trace.sh [--dry-run]
 #
 # 옵션:
 #   --dry-run  실제로 rename하지 않고 변경 내용만 표시
@@ -12,6 +12,8 @@
 set -euo pipefail
 
 # ─── 설정 ───
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 DIRECTORIES=(
     "hijh/baby_food_recipes"
@@ -38,13 +40,36 @@ done
 # ─── 함수 ───
 
 #######################################
-# 파일 수정일(mtime)을 yyyymmdd 형식으로 반환
+# 파일의 git 최초 추가일을 yyyymmdd 형식으로 반환
 # Arguments:
-#   $1 - 파일 경로
+#   $1 - 파일 경로 (repo root 기준 상대 경로)
+# Outputs:
+#   yyyymmdd 형식 날짜
+# Returns:
+#   0 성공, 1 실패 (커밋 이력 없음)
 #######################################
-function get_mtime() {
+function get_first_commit_date() {
     local file="$1"
-    stat -c '%Y' "${file}" | xargs -I{} date -d @{} '+%Y%m%d'
+
+    # 파일이 git 추적 대상이 아니면 실패
+    if ! git ls-files --error-unmatch "${file}" >/dev/null 2>&1; then
+        # 아직 git에 추가되지 않은 파일은 현재 날짜 사용
+        date '+%Y%m%d'
+        return 0
+    fi
+
+    # --follow: rename 이력도 추적, --diff-filter=A: 추가된 커밋만
+    local first_date
+    first_date="$(git log --follow --diff-filter=A --format='%ai' -- "${file}" | tail -n 1)"
+
+    if [[ -z "${first_date}" ]]; then
+        echo "[WARN] git 이력이 없는 파일: ${file}, 현재 날짜 사용" >&2
+        date '+%Y%m%d'
+        return 0
+    fi
+
+    # "2026-06-30 23:26:42 +0900" → "20260630"
+    echo "${first_date}" | head -c 10 | tr -d '-'
 }
 
 #######################################
@@ -60,10 +85,11 @@ function strip_date_prefix() {
 }
 
 #######################################
-# 파일명을 출력
+# 변경 사항을 출력
 # Arguments:
-#   $1 - 메시지
-#   $2 - 파일명
+#   $1 - 모드 (DRY-RUN / RENAMED)
+#   $2 - 원본 파일명
+#   $3 - 새 파일명
 #######################################
 function log_rename() {
     local action="$1"
@@ -76,7 +102,6 @@ function log_rename() {
 
 if [[ "${DRY_RUN}" == true ]]; then
     echo "=== DRY-RUN 모드 (실제로 rename하지 않음) ==="
-    echo ""
 fi
 
 total=0
@@ -85,8 +110,11 @@ skipped=0
 errors=0
 
 for dir in "${DIRECTORIES[@]}"; do
-    if [[ ! -d "${dir}" ]]; then
-        echo "[ERROR] 디렉토리가 존재하지 않습니다: ${dir}" >&2
+    # 절대 경로로 변환
+    local_dir="${REPO_ROOT}/${dir}"
+
+    if [[ ! -d "${local_dir}" ]]; then
+        echo "[ERROR] 디렉토리가 존재하지 않습니다: ${local_dir}" >&2
         ((errors++)) || true
         continue
     fi
@@ -94,15 +122,20 @@ for dir in "${DIRECTORIES[@]}"; do
     echo ""
     echo "=== ${dir} ==="
 
-    for filepath in "${dir}"/*.md; do
+    for filepath in "${local_dir}"/*.md; do
         [[ -f "${filepath}" ]] || continue
         ((total++)) || true
 
         filename="$(basename "${filepath}")"
+        rel_path="${filepath#${REPO_ROOT}/}"
+
+        # git에서 파일이 이미 다른 이름으로 추적 중이면 현재 이름으로 rename 안됨
+        # 현재 파일명으로 git 이력 조회 (--follow로 rename 이력 포함)
+        git_date="$(get_first_commit_date "${rel_path}")"
+
         new_basename="$(strip_date_prefix "${filename}")"
-        mtime="$(get_mtime "${filepath}")"
-        target_filename="${mtime}_${new_basename}"
-        target_path="${dir}/${target_filename}"
+        target_filename="${git_date}_${new_basename}"
+        target_path="${local_dir}/${target_filename}"
 
         # 이미 규칙에 맞거나 같은 이름이면 skip
         if [[ "${filename}" == "${target_filename}" ]]; then
