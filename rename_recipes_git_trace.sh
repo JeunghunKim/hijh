@@ -13,11 +13,16 @@ set -euo pipefail
 
 # ─── 설정 ───
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+# 스크립트가 있는 디렉토리를 repo root로 사용
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${SCRIPT_DIR}"
 
+cd "${REPO_ROOT}"
+
+# repo root 기준 상대 경로
 DIRECTORIES=(
-    "hijh/baby_food_recipes"
-    "hijh/recipes"
+    "baby_food_recipes"
+    "recipes"
 )
 
 DATE_PREFIX_REGEX='^[0-9]{8}_'
